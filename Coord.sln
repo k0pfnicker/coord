@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Coord", "src\Coord\Coord.csproj", "{A2E7C6FA-9D69-4E18-8E34-F0F7F43C3D8B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Coord.Tests", "tests\Coord.Tests\Coord.Tests.csproj", "{B8C1E8E7-790C-4899-9E78-CC4C57B73CF5}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A2E7C6FA-9D69-4E18-8E34-F0F7F43C3D8B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A2E7C6FA-9D69-4E18-8E34-F0F7F43C3D8B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A2E7C6FA-9D69-4E18-8E34-F0F7F43C3D8B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A2E7C6FA-9D69-4E18-8E34-F0F7F43C3D8B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B8C1E8E7-790C-4899-9E78-CC4C57B73CF5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B8C1E8E7-790C-4899-9E78-CC4C57B73CF5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B8C1E8E7-790C-4899-9E78-CC4C57B73CF5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B8C1E8E7-790C-4899-9E78-CC4C57B73CF5}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
