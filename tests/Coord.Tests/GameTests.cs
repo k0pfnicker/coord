@@ -30,6 +30,28 @@ public sealed class GameTests
     }
 
     [Fact]
+    public void BoardCoordinatesUseRowZeroAsVisualTop()
+    {
+        var ttt = new TicTacToeGame();
+        ttt.AddPlayer("same"); ttt.AddPlayer("same-2"); ttt.Start();
+        Assert.True(ttt.Move("same", new(0, 0)).Accepted);
+        Assert.Equal("X", ttt.State.Board[new(0, 0)]);
+        Assert.Equal("X", ttt.State.Symbols["same"]);
+
+        var four = new ConnectFourGame();
+        four.AddPlayer("same"); four.AddPlayer("same-2"); four.Start();
+        Assert.True(four.Drop("same", 0).Accepted);
+        Assert.Contains(new BoardCoordinate(5, 0), four.State.Board.Keys);
+        Assert.Equal("●", four.State.Board[new(5, 0)]);
+        Assert.NotEqual(four.State.Symbols["same"], four.State.Symbols["same-2"]);
+
+        var battleship = new BattleshipGame();
+        battleship.AddPlayer("same"); battleship.AddPlayer("same-2");
+        Assert.True(battleship.SetLayout("same", [new ShipLayout("edge", [new(0, 0)])]).Accepted);
+        Assert.Equal(new BoardCoordinate(0, 0), battleship.ViewFor("same").OwnLayout[0].Cells[0]);
+    }
+
+    [Fact]
     public void ConnectFourDropsAndRejectsFullColumn()
     {
         var game = new ConnectFourGame(); game.AddPlayer("a"); game.AddPlayer("b"); game.Start();

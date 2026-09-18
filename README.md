@@ -48,10 +48,19 @@ dotnet run --project src/Coord -- client --name Ada --room COORD
 Both commands accept `--config path` for a JSON configuration file. The file shape is:
 
 ```json
-{"network":{"address":"127.0.0.1:4242","connectTimeout":"00:00:10"},"storage":{"dataDirectory":"data"},"ai":{"provider":"none"}}
+{"network":{"address":"127.0.0.1:4242","connectTimeout":"00:00:10"},"storage":{"dataDirectory":"data"},"ai":{"provider":"none"},"ui":{"backgroundColor":"Black","foregroundColor":"Gray","accentColor":"Cyan","errorColor":"Red"}}
 ```
 
 `--no-ui` is accepted for scripted/headless runs; without it, Terminal.Gui runs alongside the networking task. The host UI opens on a neutral lobby/setup screen: it lists every activity (including `solo-mystery`), shows the room/settings/player overview, and has no game-specific controls selected. Choose an activity and configure/start it before its controls appear. Clients likewise show that they are waiting for the host, then show the selected activity while it is being configured. The current host uses the fixed development room code `COORD`; lobby state is in memory. Reconnecting with the same player name restores the connected status, but no durable identity/authentication exists. Admission is represented explicitly by an approval message followed by the admission result. Lobby and player-status messages are broadcast to connected clients.
+
+The Terminal.Gui display renders each built-in activity (including private
+Battleship fleet/shot information) from its typed or generic state payload.
+Host controls are gated by the selected activity; Who Am I supports pause,
+resume, skip, and abort, while Station of Echoes supports abort. Optional
+`ui.backgroundColor`, `ui.foregroundColor`, `ui.accentColor`, and `ui.errorColor`
+accept case-insensitive .NET `ConsoleColor` names (`Black`, `Gray`, `Cyan`,
+`Red`, and so on). Invalid names fail configuration validation with the setting
+name in the error.
 
 ## Games and playable flow
 
@@ -76,6 +85,12 @@ from the wrong player, and broadcasts only public state. The available rules are
   a full board is a draw.
 * **Connect Four**: players drop pieces into a seven-column, six-row board.
   Four connected pieces wins; a full board is a draw.
+
+Board coordinates use row `0` for the visual top edge in every board game.
+Tic-Tac-Toe assigns stable `X`/`O` marks by player slot, and Connect Four
+assigns distinct stable pieces by player slot; these marks are included in
+public game state and do not depend on player names. Battleship keeps fleet
+layouts private while exposing only the player's own layout and shot results.
 
 The generic wire identifiers are `gameSelection`, `gameAction`,
 `gameSetup`, `gameStart`, `gameState`, `gamePrivateState`, `gameTurn`, and

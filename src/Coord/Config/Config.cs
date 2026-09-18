@@ -6,12 +6,23 @@ namespace Coord.Config;
 public sealed record CoordConfig(
     NetworkConfig Network,
     StorageConfig Storage,
-    AiConfig Ai)
+    AiConfig Ai,
+    UiConfig? Ui = null)
 {
     public static CoordConfig Default() => new(
         new NetworkConfig("127.0.0.1:4242", TimeSpan.FromSeconds(10)),
         new StorageConfig("data"),
-        new AiConfig("none"));
+        new AiConfig("none"),
+        UiConfig.Default);
+}
+
+public sealed record UiConfig(
+    string BackgroundColor,
+    string ForegroundColor,
+    string? AccentColor = null,
+    string? ErrorColor = null)
+{
+    public static UiConfig Default => new("Black", "Gray", "Cyan", "Red");
 }
 
 public sealed record NetworkConfig(
@@ -45,6 +56,19 @@ public static class ConfigValidator
             throw new InvalidOperationException("ai.provider is required.");
         if (config.Ai.Timeout is { } timeout && timeout <= TimeSpan.Zero)
             throw new InvalidOperationException("ai.timeout must be positive.");
+        var ui = config.Ui ?? UiConfig.Default;
+        ValidateColor(ui.BackgroundColor, "ui.backgroundColor");
+        ValidateColor(ui.ForegroundColor, "ui.foregroundColor");
+        ValidateColor(ui.AccentColor, "ui.accentColor", optional: true);
+        ValidateColor(ui.ErrorColor, "ui.errorColor", optional: true);
+    }
+
+    private static void ValidateColor(string? value, string name, bool optional = false)
+    {
+        if (optional && string.IsNullOrWhiteSpace(value)) return;
+        if (!Enum.TryParse<ConsoleColor>(value, true, out _))
+            throw new InvalidOperationException(
+                $"{name} must be a valid ConsoleColor name (for example Black, Gray, Cyan, or Red).");
     }
 }
 

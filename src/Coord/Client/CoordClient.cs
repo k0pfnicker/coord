@@ -10,6 +10,7 @@ public sealed class CoordClient(CoordConfig config)
     public AdmissionResponse? Admission { get; private set; }
     public GameStateMessage? Game { get; private set; }
     public GamePrivateStateMessage? PrivateGame { get; private set; }
+    public string? LastGameResult { get; private set; }
     public string? SelectedGame { get; private set; }
     public bool IsWaitingForGame => SelectedGame is null;
     public GameActionMessage? GenericGameState { get; private set; }
@@ -40,6 +41,7 @@ public sealed class CoordClient(CoordConfig config)
                     case GameStateMessage game: Game = game; break;
                     case GamePrivateStateMessage privateGame: PrivateGame = privateGame; break;
                     case GameSelectionMessage selection: SelectedGame = selection.GameId; break;
+                    case GameResultMessage result: LastGameResult = result.Result; break;
                     case GameActionMessage action when action.Action.Equals("state", StringComparison.OrdinalIgnoreCase):
                         GenericGameState = action;
                         SelectedGame = action.GameId;

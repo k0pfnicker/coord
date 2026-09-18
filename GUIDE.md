@@ -42,6 +42,15 @@ to reveal its setup controls, then configure/start it; game-specific controls ar
 not shown before that point. Clients display that they are waiting for the host,
 then show the selected activity while it is being configured or started.
 
+The live client view renders each activity from its state payload: Tic-Tac-Toe
+uses a 3x3 board, Connect Four a 7x6 board, Word Duel shows scores and word
+history, Who Am I shows history and current turn, Battleship shows the private
+fleet plus public shot results (never the opponent fleet), and Station of
+Echoes shows its scene, clue, action history, and result. Generic `gameAction`
+payloads are parsed into these views instead of being dumped as raw JSON.
+Host controls are gated by applicability (pause/resume/skip/abort for Who Am I
+and abort for Station of Echoes).
+
 ## Join as a player
 
 Open another terminal and connect with the address configured by the host:
@@ -178,6 +187,24 @@ dossiers, player statistics, and leaderboard information. Use a directory outsid
 the repository for personal or long-running sessions if preferred.
 
 ### Provider settings
+
+### Terminal colors
+
+The optional `ui` section applies to both host and client before the terminal
+interface is displayed:
+
+```json
+"ui": {
+  "backgroundColor": "Black",
+  "foregroundColor": "Gray",
+  "accentColor": "Cyan",
+  "errorColor": "Red"
+}
+```
+
+Values are case-insensitive `ConsoleColor` names. Invalid names fail clearly
+during configuration loading. If omitted, the defaults preserve the traditional
+black background and gray foreground.
 
 `ai.provider` defaults to `none`. The `none`/`manual` providers are offline-safe
 and deterministic. OpenAI Responses, Gemini REST, and xAI Grok REST can be

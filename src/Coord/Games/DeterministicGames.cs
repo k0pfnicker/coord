@@ -109,8 +109,10 @@ public sealed class BattleshipGame : ITwoPlayerGame
     {
         if (!players.Contains(player)) return new(false, "Unknown player.");
         var list = ships.ToList();
-        if (list.Count == 0 || list.SelectMany(s => s.Cells).Distinct().Count() != list.Sum(s => s.Cells.Count))
-            return new(false, "Layout must contain non-overlapping ships.");
+        if (list.Count == 0 || list.Any(s => s.Cells.Count == 0 ||
+            s.Cells.Any(c => c.Row is < 0 or >= 10 || c.Column is < 0 or >= 10)) ||
+            list.SelectMany(s => s.Cells).Distinct().Count() != list.Sum(s => s.Cells.Count))
+            return new(false, "Layout must contain non-empty, in-bounds, non-overlapping ships.");
         layouts[player] = list; return new(true, "Layout accepted.");
     }
     public GameMoveResult Start()
@@ -147,14 +149,20 @@ public sealed class BattleshipGame : ITwoPlayerGame
 }
 
 public sealed record TicTacToeState(string Phase, IReadOnlyList<string> Players, string? CurrentPlayerId,
-    IReadOnlyDictionary<BoardCoordinate, string> Board, string? WinnerId, string? Result);
+    IReadOnlyDictionary<BoardCoordinate, string> Board, IReadOnlyDictionary<string, string> Symbols,
+    string? WinnerId, string? Result);
 public sealed class TicTacToeGame : ITwoPlayerGame
 {
     private readonly List<string> players = []; private readonly Dictionary<BoardCoordinate, string> board = [];
     private string? current; private string? winner; private string? result; private string phase = "configuring";
     public string Id => "tic-tac-toe"; public IReadOnlyList<string> Players => players.ToArray();
     public string? CurrentPlayerId => current; public bool IsFinished => phase is "won" or "drawn";
-    public TicTacToeState State => new(phase, players.ToArray(), current, new Dictionary<BoardCoordinate, string>(board), winner, result);
+    public TicTacToeState State => new(phase, players.ToArray(), current,
+        board.ToDictionary(pair => pair.Key, pair => SymbolFor(pair.Value)), Symbols(), winner, result);
+    private IReadOnlyDictionary<string, string> Symbols() => players
+        .Select((player, slot) => new { player, symbol = slot == 0 ? "X" : "O" })
+        .ToDictionary(x => x.player, x => x.symbol);
+    private string SymbolFor(string player) => Symbols()[player];
     public bool AddPlayer(string id)
     {
         if (players.Count >= 2 || players.Contains(id, StringComparer.Ordinal)) return false;
@@ -177,13 +185,19 @@ public sealed class TicTacToeGame : ITwoPlayerGame
 }
 
 public sealed record ConnectFourState(string Phase, IReadOnlyList<string> Players, string? CurrentPlayerId,
-    IReadOnlyDictionary<BoardCoordinate, string> Board, string? WinnerId, string? Result);
+    IReadOnlyDictionary<BoardCoordinate, string> Board, IReadOnlyDictionary<string, string> Symbols,
+    string? WinnerId, string? Result);
 public sealed class ConnectFourGame : ITwoPlayerGame
 {
     private readonly List<string> players = []; private readonly Dictionary<BoardCoordinate, string> board = [];
     private string? current; private string? winner; private string? result; private string phase = "configuring";
     public string Id => "connect-four"; public IReadOnlyList<string> Players => players.ToArray(); public string? CurrentPlayerId => current; public bool IsFinished => phase is "won" or "drawn";
-    public ConnectFourState State => new(phase, players.ToArray(), current, new Dictionary<BoardCoordinate, string>(board), winner, result);
+    public ConnectFourState State => new(phase, players.ToArray(), current,
+        board.ToDictionary(pair => pair.Key, pair => SymbolFor(pair.Value)), Symbols(), winner, result);
+    private IReadOnlyDictionary<string, string> Symbols() => players
+        .Select((player, slot) => new { player, symbol = slot == 0 ? "●" : "○" })
+        .ToDictionary(x => x.player, x => x.symbol);
+    private string SymbolFor(string player) => Symbols()[player];
     public bool AddPlayer(string id)
     {
         if (players.Count >= 2 || players.Contains(id, StringComparer.Ordinal)) return false;
@@ -193,7 +207,7 @@ public sealed class ConnectFourGame : ITwoPlayerGame
     public GameMoveResult Drop(string player, int column)
     {
         if (phase != "active") return new(false, "Game is not active."); if (player != current) return new(false, "It is not your turn."); if (column is < 0 or > 6) return new(false, "Column is outside the board.");
-        var row = Enumerable.Range(0, 6).FirstOrDefault(r => !board.ContainsKey(new(r, column)), -1); if (row < 0) return new(false, "Column is full.");
+        var row = Enumerable.Range(0, 6).Reverse().FirstOrDefault(r => !board.ContainsKey(new(r, column)), -1); if (row < 0) return new(false, "Column is full.");
         board[new(row, column)] = player; var won = Enumerable.Range(0, 6).SelectMany(r => Enumerable.Range(0, 7).Select(c => new BoardCoordinate(r, c))).Any(c => HasFour(c, player));
         if (won) { phase = "won"; winner = player; result = "Four in a row."; } else if (board.Count == 42) { phase = "drawn"; result = "Board is full."; } else current = players.First(p => p != player);
         return new(true, won ? "Won." : "Move accepted.");

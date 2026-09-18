@@ -6,7 +6,7 @@ namespace Coord.Protocol;
 public static class ProtocolConstants
 {
     public const int MajorVersion = 1;
-    public const int MinorVersion = 0;
+    public const int MinorVersion = 1;
     public static ProtocolVersion CurrentVersion => new(MajorVersion, MinorVersion);
 }
 

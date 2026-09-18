@@ -1,0 +1,13 @@
+{
+  "network": {
+    "address": "127.0.0.1:5000",
+    "connectTimeout": "00:00:10",
+    "useTls": false
+  },
+  "storage": {
+    "dataDirectory": "data"
+  },
+  "ai": {
+    "provider": "none"
+  }
+}

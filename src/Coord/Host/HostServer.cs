@@ -15,6 +15,7 @@ namespace Coord.Host;
 
 public sealed class HostServer(CoordConfig config)
 {
+    private static readonly JsonSerializerOptions StateJsonOptions = new(JsonSerializerDefaults.Web);
     private readonly AdmissionStateMachine admission = new("COORD", 16);
     private TcpListener? listener;
     private readonly ConcurrentDictionary<string, JsonLineConnection> connections = new();
@@ -34,6 +35,17 @@ public sealed class HostServer(CoordConfig config)
     public SoloMysteryGame SoloMystery => soloMystery;
     public string RoomCode => admission.RoomCode;
     public string? SelectedGame => selectedGame;
+    public string CurrentPhase => selectedGame switch
+    {
+        "who-am-i" => Game.State.Phase.ToString(),
+        "word-duel" => wordDuel.State.Phase,
+        "battleship" => battleship.State.Phase,
+        "tic-tac-toe" => ticTacToe.State.Phase,
+        "connect-four" => connectFour.State.Phase,
+        "solo-mystery" => soloMystery.State.Phase.ToString(),
+        _ => "configuring"
+    };
+    public string? CurrentTurn => CurrentPlayer(selectedGame ?? "");
     public IReadOnlyList<IGame> AvailableGames => registry.List();
     public Task<IReadOnlyList<PlayerStats>> LoadLeaderboardAsync(CancellationToken cancellationToken = default) =>
         Research.LoadLeaderboardAsync(cancellationToken);
@@ -315,6 +327,54 @@ public sealed class HostServer(CoordConfig config)
         return result.Reason;
     }
 
+    public async Task<string> ControlSelectedGameAsync(string action,
+        CancellationToken cancellationToken = default)
+    {
+        if (selectedGame is null) return "Choose a game first.";
+        if (action.Equals("reset", StringComparison.OrdinalIgnoreCase))
+        {
+            selectedGame = null;
+            await BroadcastAsync(new GameSelectionMessage(null), cancellationToken);
+            return "Activity reset; choose a new activity.";
+        }
+        if (selectedGame == "who-am-i")
+        {
+            var result = action.ToLowerInvariant() switch
+            {
+                "skip" when Game.State.CurrentPlayerId is { } player => Game.Skip(player),
+                "pause" => Game.Pause(),
+                "resume" => Game.Resume(),
+                "abort" => Game.AbortByHost("Ended by host."),
+                _ => new WhoAmIAction(false, "Control is not applicable.", Game.State)
+            };
+            await SendGameActionAsync(result, cancellationToken);
+            return result.Reason;
+        }
+        if (selectedGame == "solo-mystery" && action.Equals("abort", StringComparison.OrdinalIgnoreCase))
+        {
+            var result = soloMystery.Abort("Ended by host.");
+            await BroadcastSelectedStateAsync(cancellationToken);
+            return result.Reason;
+        }
+        return "This control is not applicable to the selected activity.";
+    }
+
+    public string RenderSelectedState()
+    {
+        if (selectedGame is null) return "No activity selected.";
+        var generic = SelectedStatePayload();
+        return selectedGame == "who-am-i"
+            ? Coord.Application.GameUiRenderer.Render(
+                new GameStateMessage(Game.State.Phase.ToString(), Game.State.Category, Game.State.CurrentPlayerId,
+                    Game.State.History.Select(h => new GameHistoryItem(h.PlayerId, h.Text, h.Kind, h.Response)).ToArray(),
+                    Game.State.WinnerId, Game.State.Result), null)
+            : Coord.Application.GameUiRenderer.Render(null,
+                new GameActionMessage(selectedGame, "state", generic));
+    }
+
+    public JsonElement SelectedStatePayload() =>
+        selectedGame is null ? JsonSerializer.SerializeToElement(new { }) : StatePayload(selectedGame);
+
     private async Task HandleGameActionAsync(
         string playerId, GameActionMessage action, CancellationToken cancellationToken)
     {
@@ -382,15 +442,7 @@ public sealed class HostServer(CoordConfig config)
     private async Task BroadcastSelectedStateAsync(CancellationToken cancellationToken)
     {
         if (selectedGame is null) return;
-        var state = selectedGame switch
-        {
-            "word-duel" => JsonSerializer.SerializeToElement(wordDuel.State),
-            "battleship" => JsonSerializer.SerializeToElement(battleship.State),
-            "tic-tac-toe" => JsonSerializer.SerializeToElement(ticTacToe.State),
-            "connect-four" => JsonSerializer.SerializeToElement(connectFour.State),
-            "solo-mystery" => JsonSerializer.SerializeToElement(soloMystery.State),
-            _ => JsonSerializer.SerializeToElement(new { })
-        };
+        var state = StatePayload(selectedGame);
         await BroadcastAsync(new GameStateMessage(
             "active", null, CurrentPlayer(selectedGame), [], null, null, selectedGame),
             cancellationToken);
@@ -399,7 +451,8 @@ public sealed class HostServer(CoordConfig config)
         {
             if (selectedGame == "battleship")
             {
-                var privateState = JsonSerializer.SerializeToElement(battleship.ViewFor(entry.Key));
+                var privateState = JsonSerializer.SerializeToElement(
+                    ToPayload(battleship.ViewFor(entry.Key)), StateJsonOptions);
                 try { await entry.Value.SendAsync(new GamePrivateStateMessage(selectedGame, privateState), cancellationToken); }
                 catch (IOException) { }
             }
@@ -407,6 +460,55 @@ public sealed class HostServer(CoordConfig config)
             catch (IOException) { }
         }
     }
+
+    // Complex dictionary keys are not JSON object keys. Convert board coordinates to
+    // stable strings at the protocol boundary while keeping the domain model typed.
+    private JsonElement StatePayload(string gameId) => gameId switch
+    {
+        "word-duel" => JsonSerializer.SerializeToElement(wordDuel.State, StateJsonOptions),
+        "battleship" => JsonSerializer.SerializeToElement(ToPayload(battleship.State), StateJsonOptions),
+        "tic-tac-toe" => JsonSerializer.SerializeToElement(ToPayload(ticTacToe.State), StateJsonOptions),
+        "connect-four" => JsonSerializer.SerializeToElement(ToPayload(connectFour.State), StateJsonOptions),
+        "solo-mystery" => JsonSerializer.SerializeToElement(soloMystery.State, StateJsonOptions),
+        _ => JsonSerializer.SerializeToElement(new { }, StateJsonOptions)
+    };
+
+    private static object ToPayload(BattleshipState state) => new
+    {
+        state.Phase,
+        state.Players,
+        state.CurrentPlayerId,
+        VisibleShots = state.VisibleShots.ToDictionary(
+            pair => CoordinateKey(pair.Key), pair => pair.Value),
+        state.OwnLayout,
+        state.WinnerId,
+        state.Result
+    };
+
+    private static object ToPayload(TicTacToeState state) => new
+    {
+        state.Phase,
+        state.Players,
+        state.CurrentPlayerId,
+        Board = state.Board.ToDictionary(pair => CoordinateKey(pair.Key), pair => pair.Value),
+        state.Symbols,
+        state.WinnerId,
+        state.Result
+    };
+
+    private static object ToPayload(ConnectFourState state) => new
+    {
+        state.Phase,
+        state.Players,
+        state.CurrentPlayerId,
+        Board = state.Board.ToDictionary(pair => CoordinateKey(pair.Key), pair => pair.Value),
+        state.Symbols,
+        state.WinnerId,
+        state.Result
+    };
+
+    private static string CoordinateKey(BoardCoordinate coordinate) =>
+        $"({coordinate.Row}, {coordinate.Column})";
 
     private string? CurrentPlayer(string gameId) => gameId switch
     {

@@ -141,6 +141,10 @@ public sealed class WhoAmIGame(IIdentityProvider provider)
     {
         lock (sync) { if (phase != WhoAmIPhase.Paused) return Reject("Game is not paused."); phase = WhoAmIPhase.Active; return Accept("Game resumed."); }
     }
+    public WhoAmIAction AbortByHost(string reason)
+    {
+        lock (sync) { if (phase is WhoAmIPhase.Won or WhoAmIPhase.Aborted) return Reject("Game has already ended."); Abort(reason); return Accept(reason); }
+    }
 
     private bool CanAct(string playerId, out string failure)
     {
