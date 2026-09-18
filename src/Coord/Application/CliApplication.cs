@@ -2,6 +2,7 @@ using BuildInformation = Coord.BuildInfo.BuildInfo;
 using Coord.Client;
 using Coord.Config;
 using Coord.Host;
+using Coord.Games;
 using Spectre.Console;
 
 namespace Coord.Application;
@@ -21,6 +22,7 @@ public static class CliApplication
             "host" => RunHost(args[1..]),
             "client" => RunClient(args[1..]),
             "version" or "--version" or "-v" => PrintVersion(),
+            "games" => PrintGames(args[1..]),
             _ => UnknownCommand(args[0])
         };
     }
@@ -103,6 +105,36 @@ public static class CliApplication
         return 0;
     }
 
+    private static int PrintGames(string[] args)
+    {
+        if (args.Any(IsHelp))
+        {
+            AnsiConsole.WriteLine("Usage: coord games [game-id]");
+            return 0;
+        }
+        var games = new[]
+        {
+            new BuiltInGame("word-duel", "Word Duel"),
+            new BuiltInGame("battleship", "Battleship"),
+            new BuiltInGame("tic-tac-toe", "Tic-Tac-Toe"),
+            new BuiltInGame("connect-four", "Connect Four"),
+            new BuiltInGame("who-am-i", "Who Am I?"),
+            new BuiltInGame("solo-mystery", "Station of Echoes (AI mystery)")
+        };
+        if (args.Length == 0)
+        {
+            AnsiConsole.MarkupLine("[bold]Games:[/]");
+            foreach (var game in games) AnsiConsole.MarkupLine($"  {game.Id,-14} {game.Name}");
+            return 0;
+        }
+        var selected = games.FirstOrDefault(g => string.Equals(g.Id, args[0], StringComparison.OrdinalIgnoreCase));
+        if (selected is null) return UnknownCommand(args[0]);
+        AnsiConsole.MarkupLine(selected.Id == "solo-mystery"
+            ? $"[bold]{selected.Name}[/] ({selected.Id}): exactly one player; ask actions to advance the mystery."
+            : $"[bold]{selected.Name}[/] ({selected.Id}): exactly two players, turn-based.");
+        return 0;
+    }
+
     private static int UnknownCommand(string command)
     {
         AnsiConsole.MarkupLine($"[red]Unknown command:[/] {command}");
@@ -112,12 +144,13 @@ public static class CliApplication
 
     private static void PrintRootHelp()
     {
-        AnsiConsole.MarkupLine("[bold]Coord[/]: cooperative game hosting and clients");
+        AnsiConsole.MarkupLine("[bold]coord[/]: multiplayer activity hosting and clients");
         AnsiConsole.WriteLine();
         AnsiConsole.MarkupLine("Usage:");
         AnsiConsole.MarkupLine("  coord host       Start a host");
         AnsiConsole.MarkupLine("  coord client     Connect as a client");
         AnsiConsole.MarkupLine("  coord version    Print the version");
+        AnsiConsole.MarkupLine("  coord games      List games (or show one game's help)");
         AnsiConsole.MarkupLine("  coord --help     Show this help");
     }
 

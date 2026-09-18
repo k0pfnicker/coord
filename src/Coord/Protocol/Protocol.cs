@@ -30,9 +30,13 @@ public sealed record GameGuessMessage(string PlayerId, string Guess) : IProtocol
 public sealed record GameControlMessage(string Action) : IProtocolMessage;
 public sealed record GameTurnMessage(string? PlayerId) : IProtocolMessage;
 public sealed record GameStateMessage(string Phase, string? Category, string? CurrentPlayerId,
-    IReadOnlyList<GameHistoryItem> History, string? WinnerId, string? Result) : IProtocolMessage;
+    IReadOnlyList<GameHistoryItem> History, string? WinnerId, string? Result, string GameId = "who-am-i") : IProtocolMessage;
 public sealed record GameHistoryItem(string PlayerId, string Text, string Kind, string? Response);
 public sealed record GameResultMessage(string Result, string? WinnerId) : IProtocolMessage;
+// Generic game routing messages keep the wire contract independent from a game's domain model.
+public sealed record GameSelectionMessage(string? GameId) : IProtocolMessage;
+public sealed record GameActionMessage(string GameId, string Action, JsonElement Payload) : IProtocolMessage;
+public sealed record GamePrivateStateMessage(string GameId, JsonElement State) : IProtocolMessage;
 
 public sealed record ProtocolEnvelope(int VersionMajor, int VersionMinor, string Type, JsonElement Payload);
 
@@ -64,6 +68,9 @@ public static class ProtocolCodec
             GameTurnMessage value => ("gameTurn", JsonSerializer.SerializeToElement(value, Options)),
             GameStateMessage value => ("gameState", JsonSerializer.SerializeToElement(value, Options)),
             GameResultMessage value => ("gameResult", JsonSerializer.SerializeToElement(value, Options)),
+            GameSelectionMessage value => ("gameSelection", JsonSerializer.SerializeToElement(value, Options)),
+            GameActionMessage value => ("gameAction", JsonSerializer.SerializeToElement(value, Options)),
+            GamePrivateStateMessage value => ("gamePrivateState", JsonSerializer.SerializeToElement(value, Options)),
             _ => throw new ArgumentOutOfRangeException(nameof(message))
         };
         return JsonSerializer.Serialize(new ProtocolEnvelope(
@@ -95,6 +102,9 @@ public static class ProtocolCodec
             "gameTurn" => envelope.Payload.Deserialize<GameTurnMessage>(Options)!,
             "gameState" => envelope.Payload.Deserialize<GameStateMessage>(Options)!,
             "gameResult" => envelope.Payload.Deserialize<GameResultMessage>(Options)!,
+            "gameSelection" => envelope.Payload.Deserialize<GameSelectionMessage>(Options)!,
+            "gameAction" => envelope.Payload.Deserialize<GameActionMessage>(Options)!,
+            "gamePrivateState" => envelope.Payload.Deserialize<GamePrivateStateMessage>(Options)!,
             _ => throw new JsonException($"Unknown message type '{envelope.Type}'.")
         };
     }

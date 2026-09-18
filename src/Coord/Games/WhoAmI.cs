@@ -42,6 +42,7 @@ public sealed class WhoAmIGame(IIdentityProvider provider)
     private WhoAmIPhase phase = WhoAmIPhase.Configuring;
 
     public WhoAmIPublicState State { get { lock (sync) return Snapshot(); } }
+    public Identity? SelectedIdentity { get { lock (sync) return identity; } }
     public void AddPlayer(string playerId)
     {
         lock (sync) if (!players.Contains(playerId, StringComparer.Ordinal)) players.Add(playerId);
